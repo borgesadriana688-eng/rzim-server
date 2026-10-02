@@ -1,0 +1,93 @@
+/**
+ * MajorLogin  (LoginReq -> MajorLoginRes)  [public]
+ *
+ * Ported from login.js (handleMajorLogin). LOOK UP the account by open_id only.
+ * If it does NOT exist, return HTTP 404 — the client interprets that as "not
+ * registered" and opens the register screen, then calls MajorRegister with the
+ * chosen nickname. (Matches the reference: _validate_login_common returns
+ * make_404_response when the account is missing, htpp.py:2164-2166.) DO NOT
+ * auto-create here.
+ *
+ * When the account exists, issue + STORE a fresh login token so
+ * player.getByToken() resolves it on subsequent authed endpoints, and return
+ * the region/token/server_url bundle the client needs to proceed to
+ * GetLoginData. (reference: major_login @ htpp.py:2201)
+ */
+
+'use strict';
+
+const player = require('../db/player');
+const { getRepo } = require('../db/repo');
+const gate = require('./_authGate');
+const { DEFAULT_REGION, TOKEN_TTL, nowSecs, newToken, serverUrl } = require('./_shared');
+
+async function handleMajorLogin(reqObj, ctx) {
+  const openId = player.deriveOpenId(reqObj);
+
+  // Login hardening (all gates OFF/safe by default — see config.auth): reject a
+  // bad client_version / signature_md5, or an open_id not registered on the auth
+  // server, with 403 (+ TCP kick for a forged build) BEFORE touching the store.
+  ctx.logger.info(
+    `[login] MajorLogin open_id=${openId} client_version="${reqObj.client_version || ''}" signature_md5="${reqObj.signature_md5 || ''}"`
+  );
+  const gated = await gate.runLoginGate(reqObj, openId);
+  if (gated) return gate.reject(ctx, gated);
+
+  let account = await getRepo().getByOpenId(openId);
+  if (!account) {
+    // AUTO-REGISTER: quando o login ja vem com open_id e nickname (nossas contas
+    // do dialog), cria a conta na hora em vez de devolver 404 — o 2022 cliente
+    // trata 404 como erro e trava; assim vai direto pro lobby.
+    const wantsNickname = String(reqObj.nickname || '').trim();
+    const isGuest = !openId || openId === 'guest-default';
+    if (!isGuest && wantsNickname) {
+      account = await getRepo().createFromLogin(reqObj);
+      ctx.logger.info(`[login] MajorLogin auto-registered uid=${account.uid} open_id=${openId} nick="${account.nickname}"`);
+    } else {
+      ctx.logger.info(`[login] MajorLogin open_id=${openId} -> 404 (not registered, client will register)`);
+      ctx.res.status(404).type('text/plain').end();
+      return undefined;
+    }
+  } else if (reqObj.nickname && String(reqObj.nickname).trim() && String(reqObj.nickname).trim() !== account.nickname) {
+    // Mantem o nick do login atualizado com o da conta web.
+    account.nickname = String(reqObj.nickname).trim();
+  }
+
+  // Ban gate (checks the game store + auth store). 403 + TCP kick when banned.
+  const banned = await gate.checkBan(openId, account);
+  if (banned) return gate.reject(ctx, banned, account.uid);
+
+  const token = newToken();
+  account.token = token;
+  account.token_created_at = nowSecs();
+  if (reqObj.device_id) account.device_id = String(reqObj.device_id);
+  if (reqObj.client_version) account.client_version = String(reqObj.client_version);
+  await getRepo().save(account);
+
+  const region = account.region || '';
+
+  ctx.logger.info(
+    `[login] MajorLogin uid=${account.uid} open_id=${account.open_id} region="${region}"`
+  );
+
+  return {
+    account_id: account.uid,
+    lock_region: region,
+    noti_region: region,
+    ip_region: region || DEFAULT_REGION,
+    agora_environment: 'live',
+    new_active_region: region,
+    recommend_regions: [DEFAULT_REGION],
+    token,
+    ttl: TOKEN_TTL,
+    server_url: serverUrl(ctx),
+    emulator_score: 0
+  };
+}
+
+module.exports = {
+  endpoint: 'MajorLogin',
+  reqType: 'LoginReq',
+  resType: 'MajorLoginRes',
+  handler: handleMajorLogin
+};
