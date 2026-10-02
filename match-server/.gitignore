@@ -1,0 +1,8 @@
+# Compiled server binaries + build artifacts
+*.exe
+*.exe~
+*.test
+/match-server
+
+# Logs / scratch
+*.log
