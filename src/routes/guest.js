@@ -23,7 +23,6 @@
 
 const crypto = require('crypto');
 const express = require('express');
-const tracker = require('./guestTracker');
 
 const SECRET_KEY = process.env.SECRET_KEY || 'freefire_private_server_2024_hmac_key_fixed_v2';
 const GAME_VERSION = process.env.GAME_VERSION || '1.70.1';
@@ -102,19 +101,13 @@ function param(req, name, fallback) {
   return fallback === undefined ? '' : fallback;
 }
 
-const OPEN_ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
 function genOpenId() {
-  let out = '';
-  const b = crypto.randomBytes(32);
-  for (let i = 0; i < 32; i++) out += OPEN_ID_ALPHABET[b[i] % 36];
-  return out;
+  return String(BigInt('0x' + crypto.randomUUID().replace(/-/g, ''))).slice(0, 18).padStart(18, '0');
 }
 
 function seededOpenId(seed) {
-  const b = crypto.createHash('sha256').update(String(seed)).digest();
-  let out = '';
-  for (let i = 0; i < 32; i++) out += OPEN_ID_ALPHABET[b[i] % 36];
-  return out;
+  const h = crypto.createHash('sha256').update(String(seed)).digest('hex');
+  return BigInt('0x' + h).toString().slice(0, 18).padStart(18, '0');
 }
 
 function guestAccount(customNick, seed) {
@@ -122,23 +115,13 @@ function guestAccount(customNick, seed) {
   const nickname = customNick || 'Guest' + Math.floor(Math.random() * 99999);
   return {
     open_id: openId,
-    platform: 4,
+    platform: 'guest',
     access_token: createToken(openId, nickname, 'guest'),
     refresh_token: createRefreshToken(openId, nickname, 'guest'),
     expiry_time: nowSecs() + 86400 * 30,
     expires_in: 86400 * 30,
     token_type: 'Bearer'
   };
-}
-
-function uidFromOpenId(openId) {
-  // open_id novo e alfanumerico (32 chars): derivar uid numerico estavel via hash
-  try {
-    const h = crypto.createHash('sha256').update(String(openId)).digest();
-    return Number(h.readBigUInt64BE(0) % 100000000000000n);
-  } catch (e) {
-    return 10000001;
-  }
 }
 
 function gameServerHost(req) {
@@ -150,17 +133,13 @@ function gameServerHost(req) {
 router.post('/oauth/guest/register', (req, res) => {
   const nickname = param(req, 'nickname') || null;
   const seed = param(req, 'uid') || param(req, 'device_id') || null;
-  const acc = guestAccount(nickname, seed);
-  tracker.noteGuest(req, acc.open_id);
-  res.json(acc);
+  res.json(guestAccount(nickname, seed));
 });
 
 router.get('/oauth/guest/register', (req, res) => {
   const nickname = param(req, 'nickname') || null;
   const seed = param(req, 'uid') || param(req, 'device_id') || null;
-  const acc = guestAccount(nickname, seed);
-  tracker.noteGuest(req, acc.open_id);
-  res.json(acc);
+  res.json(guestAccount(nickname, seed));
 });
 
 router.post('/oauth/guest/token/grant', (req, res) => {
@@ -202,7 +181,7 @@ router.get('/oauth/token/inspect', (req, res) => {
   if (!d) return res.json({ code: 2017, error: 'invalid_grant' });
   res.json({
     expiry_time: d.expire,
-    uid: uidFromOpenId(d.open_id),
+    uid: Number(BigInt(d.open_id) % 100000000000000n),
     open_id: d.open_id,
     main_active_platform: 4,
     app_id: 100067,
@@ -221,7 +200,7 @@ router.get('/oauth/logout', (req, res) => {
 function userInfoPayload(d) {
   return {
     open_id: d.open_id,
-    platform: 4,
+    platform: 'guest',
     icon: '',
     nickname: d.nickname || 'Player',
     gender: 1,
@@ -269,11 +248,7 @@ function graphMe(req, res) {
   const token = req.query.access_token || (req.body && req.body.access_token) || '';
   const d = verifyToken(token);
   if (!d) return res.status(401).json({ error: { code: 190, message: 'Invalid OAuth access token' } });
-  // SHAPE: a referencia (FreeFireServer master) devolve id = uid numerico,
-  // consistente com o exchange (mesma derivacao). Nao o open_id cru.
-  let uid = 10000001;
-  uid = uidFromOpenId(d.open_id);
-  res.json({ id: String(uid), name: d.nickname || 'Player', first_name: d.nickname || 'Player', last_name: '' });
+  res.json({ id: d.open_id, name: d.nickname || 'Player', first_name: d.nickname || 'Player', last_name: '' });
 }
 router.get('/me', graphMe);
 router.get(/^\/v[\d.]+\/me$/, graphMe);
@@ -286,7 +261,7 @@ router.get('/app/info/get', (req, res) => {
     version: GAME_VERSION,
     game_server: gameServerHost(req),
     update_url: '',
-    notice: { title: 'Servidor Privado', content: 'Bem-vindo ao servidor!', show: false }
+    notice: { title: 'Servidor Privado', content: 'Bem-vindo ao servidor!', show: true }
   });
 });
 

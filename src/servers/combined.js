@@ -20,8 +20,6 @@ const config = require('../../config/default');
 const { createBaseApp, finalizeApp } = require('../apps/base');
 const { startServer } = require('./_start');
 const guestRoutes = require('../routes/guest');
-const facebookRoutes = require('../routes/facebook');
-const sdkDebugRoutes = require('../routes/sdkdebug');
 const createProtocolRouter = require('../protocol/router');
 
 const app = createBaseApp();
@@ -33,10 +31,6 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // 1) SDK: guest automático + app/info + heartbeat + graph mínimo
 app.use('/', guestRoutes);
-// 1b) ponte do Facebook (dialog/exchange/graph) — antes do protocolo do jogo
-app.use('/', facebookRoutes);
-// 1c) debug do APK instrumentado (logs do SDK via POST)
-app.use('/', sdkDebugRoutes);
 
 // 2) live: /live/ver.php (aponta pro login = este mesmo host)
 app.use('/live', require('../routes/version'));

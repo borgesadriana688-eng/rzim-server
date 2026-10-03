@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "node src/servers/combined.js",
+    "startCommand": "node src/db/migrate.js && node railway_boot.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }
