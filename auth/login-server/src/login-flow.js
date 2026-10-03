@@ -29,7 +29,7 @@ const DATA_ACCESS_OFFSET_SECONDS = 5_183_716;
 // Returns:
 //   { ok: true,  redirectUrl, uid, openId }
 //   { ok: false, reason: 'renovation' }
-async function completeDiscordLogin({ discordUser, redirectUri, ip, guests, accounts, log }) {
+async function completeDiscordLogin({ discordUser, redirectUri, clientState, ip, guests, accounts, log }) {
   const flowLog = log || logger;
   const dcId = discordUser.id;
   const now = nowSeconds();
@@ -122,13 +122,24 @@ async function completeDiscordLogin({ discordUser, redirectUri, ip, guests, acco
   });
 
   const dataAccessExpiry = tokenSet.create_time + DATA_ACCESS_OFFSET_SECONDS;
-  const redirectUrl =
-    `${redirectUri}#granted_scopes=${GRANTED_SCOPES}` +
-    `&denied_scopes=` +
-    `&signed_request=${signedRequest}` +
-    `&access_token=${tokenSet.access_token}` +
-    `&data_access_expiration_time=${dataAccessExpiry}` +
-    `&expires_in=1296000`;
+  // Response params. For custom-tab redirect URIs (fbconnect://cct.<pkg>)
+  // the params must travel in the QUERY string: Chrome strips the fragment
+  // when handing the URI to the app via intent. The FB SDK's
+  // CustomTabLoginMethodHandler parses query + fragment and merges them,
+  // and requires the original OAuth state (7_challenge) to be echoed back.
+  const params = new URLSearchParams();
+  params.set('granted_scopes', GRANTED_SCOPES);
+  params.set('denied_scopes', '');
+  params.set('signed_request', signedRequest);
+  params.set('access_token', tokenSet.access_token);
+  params.set('data_access_expiration_time', String(dataAccessExpiry));
+  params.set('expires_in', '1296000');
+  if (clientState) params.set('state', clientState);
+
+  const isCustomTab = /^fbconnect:\/\/cct\./.test(redirectUri);
+  const redirectUrl = isCustomTab
+    ? `${redirectUri}?${params.toString()}`
+    : `${redirectUri}#${params.toString()}`;
 
   return { ok: true, redirectUrl, uid: user.uid, openId: user.open_id };
 }
