@@ -19,13 +19,14 @@ const DEFAULT_MAX_AGE_SECONDS = 600;
 // `pair_id` is optional at the state module level so tests and non-pairing
 // flows do not have to construct one. Callers that require it (e.g., the
 // login-server callback route) validate its presence themselves.
-function signState({ redirect_uri, pair_id }, { secret, now = Math.floor(Date.now() / 1000) } = {}) {
+function signState({ redirect_uri, pair_id, client_state }, { secret, now = Math.floor(Date.now() / 1000) } = {}) {
   const body = {
     r: redirect_uri,
     n: crypto.randomBytes(12).toString('base64url'),
     t: now,
   };
   if (pair_id) body.p = pair_id;
+  if (client_state) body.c = client_state;
   const encoded = base64UrlNoPad(Buffer.from(JSON.stringify(body), 'utf8'));
   const sig = base64UrlNoPad(crypto.createHmac('sha256', secret).update(encoded).digest());
   return `${encoded}.${sig}`;
@@ -56,7 +57,8 @@ function verifyState(state, { secret, maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS, n
   if (now - body.t > maxAgeSeconds) return { ok: false, reason: 'expired' };
 
   const pair_id = typeof body.p === 'string' && body.p.length > 0 ? body.p : null;
-  return { ok: true, redirect_uri: body.r, pair_id };
+  const client_state = typeof body.c === 'string' && body.c.length > 0 ? body.c : null;
+  return { ok: true, redirect_uri: body.r, pair_id, client_state };
 }
 
 module.exports = { signState, verifyState };
