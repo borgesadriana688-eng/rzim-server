@@ -70,6 +70,7 @@ module.exports = function registerDiscordRoute(app, { guests, accounts, pairings
     }
     const redirectUri = stateResult.redirect_uri;
     const pairId = stateResult.pair_id;
+    const clientState = stateResult.client_state || null;
 
     // From this point on we own a pair_id and can propagate failures back
     // to the polling WebView via markFailed.
@@ -116,6 +117,7 @@ module.exports = function registerDiscordRoute(app, { guests, accounts, pairings
     const flow = await completeDiscordLogin({
       discordUser,
       redirectUri,
+      clientState,
       ip: req.ip,
       guests,
       accounts,
