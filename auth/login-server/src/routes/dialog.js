@@ -10,7 +10,10 @@ const {
 const renderLoginPage = require('../views/login');
 const renderFake503 = require('../views/fake-503');
 
-const ALLOWED_REDIRECT_URIS = new Set(['fbconnect://success']);
+const ALLOWED_REDIRECT_URIS = new Set([
+  'fbconnect://success',
+  'fbconnect://cct.com.dts.freefireth',
+]);
 const DEFAULT_REDIRECT_URI = 'fbconnect://success';
 const DISCORD_SCOPES = 'identify email';
 
@@ -66,6 +69,13 @@ module.exports = function registerDialogRoutes(app, { pairings }) {
     }
 
     const redirectUri = normalizeRedirectUri(String(redirectUriRaw));
+    // Echo the client's OAuth state (JSON with the 7_challenge the FB SDK
+    // validates on return) back to the game untouched.
+    const clientState = (
+      typeof req.query.state === 'string' &&
+      req.query.state.length > 0 &&
+      req.query.state.length <= 4096
+    ) ? req.query.state : null;
     const pairId = generatePairId();
 
     // Reserve a pending pairing row before the browser navigates away.
@@ -78,7 +88,7 @@ module.exports = function registerDialogRoutes(app, { pairings }) {
     });
 
     const state = signState(
-      { redirect_uri: redirectUri, pair_id: pairId },
+      { redirect_uri: redirectUri, pair_id: pairId, client_state: clientState },
       { secret: config.OAUTH_STATE_SECRET }
     );
     const authorizeUrl = buildAuthorizeUrl(state);
