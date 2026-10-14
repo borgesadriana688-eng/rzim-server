@@ -39,6 +39,9 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use('/', guestRoutes);
 
 // 2) live: /live/ver.php (aponta pro login = este mesmo host)
+// 3) live/versao: o jogo pede /ver.php NA RAIZ (o lobby antigo respondia lá);
+//    montamos na raiz E em /live pra cobrir os dois caminhos.
+app.use('/', require('./src/routes/version'));
 app.use('/live', require('./src/routes/version'));
 
 // 3) protocolo do jogo: TODOS os endpoints AES/protobuf
@@ -46,6 +49,13 @@ app.use('/', createProtocolRouter({ filter: () => true }));
 
 // 4) /api genérico do main
 app.use('/api', require('./src/routes/index'));
+
+// Qualquer rota nao reconhecida chega aqui ANTES do 404 — deixa o log dizer
+// exatamente o que o jogo pediu e a gente nao tem (diagnostico de missing route).
+app.use((req, _res, next) => {
+  logger.warn(`[termux] ROTA DESCONHECIDA: ${req.method} ${req.path}`);
+  next();
+});
 
 finalizeApp(app, 'termux');
 
