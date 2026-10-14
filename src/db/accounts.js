@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
+// Termux/Android: better-sqlite3 (nativo) quando disponível; senão o shim
+// node:sqlite (src/db/sqlite-shim.js), que não precisa compilar nada.
+let Database;
+try {
+  const D = require('better-sqlite3');
+  new D(':memory:').close(); // sem bindings o require passa mas o construtor falha
+  Database = D;
+} catch (e) {
+  Database = require('./sqlite-shim');
+}
 
 const config = require('../../config/default');
 const logger = require('../logger');
