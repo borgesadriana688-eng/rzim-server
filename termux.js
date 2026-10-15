@@ -47,6 +47,10 @@ app.use('/live', require('./src/routes/version'));
 // 3) protocolo do jogo: TODOS os endpoints AES/protobuf
 app.use('/', createProtocolRouter({ filter: () => true }));
 
+// 3b) cliente 1.27 (FreeFire 2019 Private): tudo em /v127/ — ver.php e protocolo
+app.use('/v127', require('./src/routes/version'));
+app.use('/v127', createProtocolRouter({ filter: () => true }));
+
 // 4) /api genérico do main
 app.use('/api', require('./src/routes/index'));
 

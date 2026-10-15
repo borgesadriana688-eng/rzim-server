@@ -76,6 +76,7 @@ printf "\n${G}==== TUDO PRONTO - ABRA O JOGO AGORA ====${R}\n"
 printf "Se aparecer erro abaixo, tire print e mande no chat.\n\n"
 # versao do cliente: "bash start.sh" = 1.70 | "bash start.sh 143" = cliente 1.43 (MID5)
 case "${1:-170}" in
+  127) GAME_V=1.27.0 ;;
   143) GAME_V=1.43.0 ;;
   *)   GAME_V=1.70.0 ;;
 esac
