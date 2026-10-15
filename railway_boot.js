@@ -82,9 +82,15 @@ async function main() {
   }
 
   // ---- jogo do ZIP (mesma ordem do src/servers/combined.js) ----
+  const versionRoutes = require('./src/routes/version');
   app.use('/', guestRoutes);
-  app.use('/live', require('./src/routes/version'));
+  app.use('/live', versionRoutes);
+  // clientes antigos direto pela URL: /v143 (MID5) e /v127 (FF2019)
+  app.use('/v143', versionRoutes.create('1.43.0'));
+  app.use('/v127', versionRoutes.create('1.27.0'));
   app.use('/', createProtocolRouter({ filter: () => true }));
+  app.use('/v143', createProtocolRouter({ filter: () => true }));
+  app.use('/v127', createProtocolRouter({ filter: () => true }));
   app.use('/api', require('./src/routes/index'));
 
   finalizeApp(app, 'combined');
