@@ -122,6 +122,8 @@ async function main() {
     });
   });
 
+  app.use('/cdn', require('./src/routes/cdn'));
+
   app.use('/live', versionRoutes);
   // clientes antigos direto pela URL: /v143 (MID5) e /v127 (FF2019)
   app.use('/v143', versionRoutes.create('1.43.0'));

@@ -43,6 +43,7 @@ app.use('/', guestRoutes);
 //    montamos na raiz E em /live pra cobrir os dois caminhos.
 const versionRoutes = require('./src/routes/version');
 app.use('/', versionRoutes);
+app.use('/cdn', require('./src/routes/cdn'));
 app.use('/live', versionRoutes);
 // Todas as versoes de cliente ao mesmo tempo:
 //   / e /live  -> 1.70 (padrao, ajustavel com GAME_VERSION)
