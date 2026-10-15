@@ -96,6 +96,32 @@ async function main() {
   // ---- jogo do ZIP (mesma ordem do src/servers/combined.js) ----
   const versionRoutes = require('./src/routes/version');
   app.use('/', guestRoutes);
+  // /vver.php na RAIZ: o cliente 1.27 (2019) pede esse caminho (nao /ver.php)
+  // com ?version=<versao do proprio cliente>. Responde espelhando a versao dele
+  // -> cliente acha que ja esta atualizado e nao tenta baixar nada.
+  app.get(['/vver.php', '/v127/vver.php', '/v143/vver.php', '/live/vver.php'], (req, res) => {
+    const v = (req.query.version || '1.27.0').trim();
+    const host = 'https://' + (req.headers.host || 'rzim-cloud.onrender.com') + '/';
+    res.json({
+      appstore_url: '',
+      billboard_msg: 'Bem-vindo ao servidor privado RZIM',
+      cdn_url: host + 'cdn/',
+      client_ip: (req.headers['x-forwarded-for'] || '').split(',')[0] || req.ip,
+      code: 0,
+      country_code: 'BR',
+      force_to_restart_app: false,
+      gdpr_version: 2,
+      is_firewall_open: false,
+      is_review_server: false,
+      is_server_open: true,
+      maintenance_announcement: '',
+      maintenance_region: '',
+      remote_option_version: v,
+      remote_version: v,
+      server_url: host
+    });
+  });
+
   app.use('/live', versionRoutes);
   // clientes antigos direto pela URL: /v143 (MID5) e /v127 (FF2019)
   app.use('/v143', versionRoutes.create('1.43.0'));
