@@ -74,7 +74,13 @@ fi
 # 8) servidor do LOBBY na frente (HTTP + TCP)
 printf "\n${G}==== TUDO PRONTO - ABRA O JOGO AGORA ====${R}\n"
 printf "Se aparecer erro abaixo, tire print e mande no chat.\n\n"
+# versao do cliente: "bash start.sh" = 1.70 | "bash start.sh 143" = cliente 1.43 (MID5)
+case "${1:-170}" in
+  143) GAME_V=1.43.0 ;;
+  *)   GAME_V=1.70.0 ;;
+esac
+printf "Versao do cliente: %s\n" "$GAME_V"
 exec env TERMUX_HTTP_PORTS=18000,18001,5008 MAIN_PORT=18001 TCP_PORT=18002 \
   TCP_PUBLIC_HOST=127.0.0.1 MATCH_PUBLIC_HOST=127.0.0.1 \
-  LOGIN_DOMAIN=http://127.0.0.1:18000/ GAME_VERSION=1.70.0 \
+  LOGIN_DOMAIN=http://127.0.0.1:18000/ GAME_VERSION="$GAME_V" \
   node termux.js
