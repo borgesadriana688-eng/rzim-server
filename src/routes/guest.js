@@ -69,7 +69,36 @@ function createRefreshToken(openId, nickname, tokenType) {
   return payloadB64 + '.' + sign(payloadB64);
 }
 
+// ---------- tokens do lobby MONTROY (conta_pv / rzim-lobby143) ----------
+// Formato: RZIM<uid>.<exp>.<sig24>, sig = base64url(HMAC_SHA256("tok<uid>.<exp>", SECRET))[:24]
+// SECRET = sha256hex(<service-id-do-lobby> + "conta-v1") — igual ao conta_pv.py
+const LOBBY_SECRET = crypto.createHash('sha256')
+    .update((process.env.LOBBY_SERVICE_ID || 'srv-db51gf0473hc739hjd50') + 'conta-v1')
+    .digest('hex');
+
+function verifyLobbyToken(token) {
+    if (!token || String(token).indexOf('RZIM') !== 0) return null;
+    const p = String(token).slice(4);
+    const i = p.lastIndexOf('.');
+    if (i < 0) return null;
+    const body = p.slice(0, i);
+    const sig = p.slice(i + 1);
+    const expected = crypto.createHmac('sha256', LOBBY_SECRET).update('tok' + body).digest('base64')
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 24);
+    const a = Buffer.from(sig || '');
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const m = body.match(/^(\d+)\.(\d+)$/);
+    if (!m) return null;
+    const uid = m[1];
+    const exp = Number(m[2]);
+    if (exp < nowSecs()) return null;
+    return { open_id: 'local:' + uid, nickname: 'Player', type: 'lobby', created: exp - 60 * 86400, expire: exp };
+}
+
 function verifyToken(token) {
+  const lobby = verifyLobbyToken(token);
+  if (lobby) return lobby;
   if (!token || String(token).indexOf('.') < 0) return null;
   const parts = String(token).split('.');
   if (parts.length !== 2) return null;
