@@ -13,7 +13,7 @@
   "type": "commonjs",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/servers/combined.js",
+    "start": "node railway_boot.js",
     "live": "node src/servers/live.js",
     "login": "node src/servers/login.js",
     "main": "node src/servers/main.js",
