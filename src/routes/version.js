@@ -38,7 +38,11 @@ function createVersionRouter(versionOverride) {
             is_server_open: true,
             maintenance_announcement: '',
             maintenance_region: '',
-            remote_option_version: 'optionalclothres:282|optionalmap1res:194|optionalmap2res:36|optionalmap4res:19|optionalmapres:17|optionalpetres:17|optionalvoiceres:147|optionalwerewolves:48',
+            // Clientes antigos (1.27, pacote 2019): string simples igual a remote_version
+            // faz o cliente pular a checagem de recursos opcionais (padrao do lobby antigo
+            // que funcionava). O string longo da 1.70 faz o 1.27 tentar baixar do CDN
+            // oficial -> "Falha no download".
+            remote_option_version: version.startsWith('1.27') ? version : 'optionalclothres:282|optionalmap1res:194|optionalmap2res:36|optionalmap4res:19|optionalmapres:17|optionalpetres:17|optionalvoiceres:147|optionalwerewolves:48',
             remote_version: version,
             server_url: loginServerUrl(req)
         });
