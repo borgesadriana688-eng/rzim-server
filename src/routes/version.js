@@ -27,7 +27,9 @@ function createVersionRouter(versionOverride) {
         res.json({
             appstore_url: 'https://play.google.com/store/apps/details?id=com.dts.freefireth',
             billboard_msg: '',
-            cdn_url: "https://dl.cdn.freefiremobile.com/live/ABHotUpdates/",
+            // 1.27: CDN aponta pra nossa nuvem p/ o pedido de download cair no nosso
+            // servidor (diagnostico) em vez do CDN oficial morto p/ versao 2019.
+            cdn_url: version.startsWith('1.27') ? loginServerUrl(req) + 'cdn/' : "https://dl.cdn.freefiremobile.com/live/ABHotUpdates/",
             client_ip: requestIp,
             code: 0,
             country_code: 'BR',

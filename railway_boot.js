@@ -44,6 +44,18 @@ const connectPaths = [
 async function main() {
   const app = createBaseApp();
 
+  // diagnostico: grava TODAS as requisicoes p/ ver o que o cliente pede
+  const reqLog = [];
+  app.use((req, res, next) => {
+    const e = { t: new Date().toISOString(), m: req.method, p: req.originalUrl,
+                ip: (req.headers['x-forwarded-for'] || '').split(',')[0] || req.ip, s: 0 };
+    reqLog.push(e);
+    if (reqLog.length > 1000) reqLog.shift();
+    res.on('finish', () => { e.s = res.statusCode; });
+    next();
+  });
+  app.get('/__requests', (req, res) => res.json(reqLog.slice(-400)));
+
   const express = require('express');
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
