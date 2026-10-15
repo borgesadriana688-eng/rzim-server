@@ -41,14 +41,19 @@ app.use('/', guestRoutes);
 // 2) live: /live/ver.php (aponta pro login = este mesmo host)
 // 3) live/versao: o jogo pede /ver.php NA RAIZ (o lobby antigo respondia lá);
 //    montamos na raiz E em /live pra cobrir os dois caminhos.
-app.use('/', require('./src/routes/version'));
-app.use('/live', require('./src/routes/version'));
+const versionRoutes = require('./src/routes/version');
+app.use('/', versionRoutes);
+app.use('/live', versionRoutes);
+// Todas as versoes de cliente ao mesmo tempo:
+//   / e /live  -> 1.70 (padrao, ajustavel com GAME_VERSION)
+//   /v143      -> 1.43 (MID5 Private)
+//   /v127      -> 1.27 (FreeFire 2019 Private)
+app.use('/v143', versionRoutes.create('1.43.0'));
+app.use('/v127', versionRoutes.create('1.27.0'));
 
-// 3) protocolo do jogo: TODOS os endpoints AES/protobuf
+// 3) protocolo do jogo: TODOS os endpoints AES/protobuf (raiz + cada versao)
 app.use('/', createProtocolRouter({ filter: () => true }));
-
-// 3b) cliente 1.27 (FreeFire 2019 Private): tudo em /v127/ — ver.php e protocolo
-app.use('/v127', require('./src/routes/version'));
+app.use('/v143', createProtocolRouter({ filter: () => true }));
 app.use('/v127', createProtocolRouter({ filter: () => true }));
 
 // 4) /api genérico do main

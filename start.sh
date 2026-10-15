@@ -73,6 +73,8 @@ fi
 
 # 8) servidor do LOBBY na frente (HTTP + TCP)
 printf "\n${G}==== TUDO PRONTO - ABRA O JOGO AGORA ====${R}\n"
+printf "Atende TODAS as versoes ao mesmo tempo: 1.70 (raiz//live), 1.43 (/v143), 1.27 (/v127)\n"
+printf "Pra deixar 24h (reinicia sozinho + boot): ${Y}bash install-service.sh${R}\n"
 printf "Se aparecer erro abaixo, tire print e mande no chat.\n\n"
 # versao do cliente: "bash start.sh" = 1.70 | "bash start.sh 143" = cliente 1.43 (MID5)
 case "${1:-170}" in
