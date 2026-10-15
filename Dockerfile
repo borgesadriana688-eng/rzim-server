@@ -5,4 +5,5 @@ COPY . .
 RUN (npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund)
 RUN cd auth && (npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund)
 EXPOSE 8080
-CMD ["sh", "-c", "node src/db/migrate.js && node railway_boot.js"]
+# migrate.js e opcional (so para Postgres); o railway_boot cria o schema SQLite sozinho
+CMD ["sh", "-c", "node src/db/migrate.js || true; exec node railway_boot.js"]
