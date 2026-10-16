@@ -135,6 +135,29 @@ async function main() {
 
   finalizeApp(app, 'combined');
 
+
+  // ---- keep-alive mutuo (Render free dorme apos 15min sem trafego) ----
+  // Ao acordar (qualquer request do jogo), acorda os irmaos; e a cada 10 min
+  // mantem todos quentes enquanto qualquer um estiver de pe.
+  const KA = (process.env.KEEPALIVE_TARGETS ||
+    'https://montro.onrender.com/|https://rzim-lobby143.onrender.com/')
+    .split('|').map(s => s.trim()).filter(Boolean);
+  const httpsMod = require('https');
+  const kaPing = () => {
+    for (const u of KA) {
+      try {
+        const r = httpsMod.get(u, { timeout: 120000 }, res => {
+          res.resume();
+          console.log('[keepalive] ' + u + ' -> ' + res.statusCode);
+        });
+        r.on('error', e => console.log('[keepalive] ' + u + ' erro: ' + e.message));
+        r.on('timeout', () => r.destroy());
+      } catch (e) {}
+    }
+  };
+  setTimeout(kaPing, 5000);
+  setInterval(kaPing, 10 * 60 * 1000);
+
   const port = process.env.PORT || config.ports.main || 3002;
   startServer(app, port, 'combined');
 }

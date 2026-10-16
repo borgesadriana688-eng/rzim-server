@@ -1,6 +1,5 @@
 .git
 node_modules
-data
 logs
 test_logs
 original_to_read

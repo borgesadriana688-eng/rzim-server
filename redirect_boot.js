@@ -64,3 +64,16 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
     console.log('montro: dialog->' + LOBBY + ' | proxy->' + CLOUD + ' | porta ' + PORT);
 });
+
+// keep-alive mutuo: acorda cloud e lobby junto com a montre
+const kaPing = () => {
+    for (const u of ['https://rzim-cloud.onrender.com/vver.php?version=1.27.1', 'https://rzim-lobby143.onrender.com/']) {
+        try {
+            const r = require('https').get(u, { timeout: 120000 }, res => { res.resume(); console.log('[keepalive] ' + u + ' -> ' + res.statusCode); });
+            r.on('error', e => console.log('[keepalive] ' + u + ' erro: ' + e.message));
+            r.on('timeout', () => r.destroy());
+        } catch (e) {}
+    }
+};
+setTimeout(kaPing, 5000);
+setInterval(kaPing, 10 * 60 * 1000);
