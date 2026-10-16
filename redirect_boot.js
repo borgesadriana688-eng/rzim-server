@@ -27,6 +27,12 @@ function ehDialog(url) {
 }
 
 const server = http.createServer((req, res) => {
+    // health check do Render: responde 200 direto
+    const sohRaiz = req.url.split('?')[0].replace(/\/+$/, '');
+    if (sohRaiz === '' || sohRaiz === '/healthz' || sohRaiz === '/health') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end('montroy ok');
+    }
     if (ehDialog(req.url)) {
         res.writeHead(302, { Location: LOBBY + req.url, 'Cache-Control': 'no-store' });
         return res.end();
