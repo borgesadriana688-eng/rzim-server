@@ -59,18 +59,9 @@ app.use('/v127', createProtocolRouter({ filter: () => true }));
 
 // 4) /api genérico do main
 
-// 5) telas de login do cliente 1.27 (webview): 302 pro lobby MONTROY no Render.
-//    A WebView do Android segue redirects; as rotas de SDK (/app/info/get,
-//    /oauth/*, /me) seguem servidas aqui mesmo, direto do Termux.
-const LOBBY143 = (process.env.LOBBY143_TARGET || 'https://rzim-lobby143.onrender.com').replace(/\/+$/, '');
-const ehDialogT = (p) => {
-    const q = p.split('?')[0].replace(/\/+$/, '');
-    return /\/dialog\/oauth$/.test(q) || /\/login\.php$/.test(q) || /^\/(v[0-9.]+\/)?(dialog|login)/.test(q);
-};
-app.use((req, res, next) => {
-    if (ehDialogT(req.url)) return res.redirect(302, LOBBY143 + req.url);
-    next();
-});
+// 5) tela de login MONTROY 100% local (o DNS do celular nao resolve Render,
+//    entao nem tenta: pagina + captcha + login/registro tudo daqui).
+app.use('/', require('./src/routes/lobby_local'));
 
 app.use('/api', require('./src/routes/index'));
 
