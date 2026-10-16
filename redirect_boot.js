@@ -1,22 +1,24 @@
 'use strict';
 
-// Mini servidor redirecionador (servico "montro" no Render).
+// Mini servidor roteador (servico "montro" no Render).
 // O APK do Free Fire 1.27 tem gravado um endereco curto
 // (https://montro.onrender.com) que precisa caber no lugar da URL antiga do
 // pack (http://190.115.198.51:18000, 27 bytes).
 //
 // Rotas:
-//   - dialog/login (tela de conta MONTROY)  -> rzim-lobby143 (HTML da pagina)
-//   - todo o resto (SDK: /app/info/get, oauth/*, heartbeat...) -> rzim-cloud
-//     (que serve as respostas JSON do 1.27 e valida o token do lobby)
-// NAO redirecionar tudo pro lobby: o lobby responde valores do 1.43 e o
-// cliente 1.27 crasha na inicializacao quando recebe esse conteudo.
+//   - dialog/login (tela de conta MONTROY) -> 302 pro rzim-lobby143 (HTML)
+//   - todo o resto (SDK: /app/info/get, oauth/*, heartbeat, /me...) ->
+//     PROXY transparente pro rzim-cloud (mantem metodo e corpo; um 302
+//     converteria POST em GET e derrubaria o corpo, quebrando o token).
 
 const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 
 const PORT = process.env.PORT || 10000;
 const LOBBY = (process.env.LOBBY_TARGET || 'https://rzim-lobby143.onrender.com').replace(/\/+$/, '');
 const CLOUD = (process.env.CLOUD_TARGET || 'https://rzim-cloud.onrender.com').replace(/\/+$/, '');
+const cloudUrl = new URL(CLOUD);
 
 // caminhos de tela de login (dialog oauth / login.php) vao pro lobby
 function ehDialog(url) {
@@ -25,11 +27,34 @@ function ehDialog(url) {
 }
 
 const server = http.createServer((req, res) => {
-    const destino = ehDialog(req.url) ? LOBBY : CLOUD;
-    res.writeHead(302, { Location: destino + req.url, 'Cache-Control': 'no-store' });
-    res.end();
+    if (ehDialog(req.url)) {
+        res.writeHead(302, { Location: LOBBY + req.url, 'Cache-Control': 'no-store' });
+        return res.end();
+    }
+    // proxy transparente pro rzim-cloud
+    const headers = Object.assign({}, req.headers);
+    headers.host = cloudUrl.host;
+    const opts = {
+        hostname: cloudUrl.hostname,
+        port: 443,
+        path: req.url,
+        method: req.method,
+        headers: headers,
+        timeout: 60000
+    };
+    const up = https.request(opts, (upRes) => {
+        res.writeHead(upRes.statusCode || 502, upRes.headers);
+        upRes.pipe(res);
+    });
+    up.on('timeout', () => up.destroy(new Error('upstream timeout')));
+    up.on('error', (err) => {
+        console.error('proxy erro:', err.message, req.url);
+        if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ code: 1000, error: 'proxy_unavailable' }));
+    });
+    req.pipe(up);
 });
 
 server.listen(PORT, () => {
-    console.log('montro: dialog->' + LOBBY + ' sdk->' + CLOUD + ' na porta ' + PORT);
+    console.log('montro: dialog->' + LOBBY + ' | proxy->' + CLOUD + ' | porta ' + PORT);
 });
