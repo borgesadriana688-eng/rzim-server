@@ -101,6 +101,24 @@ gateway.listen(TCP_PORT, () => logger.info(`[termux] gateway tcp na porta ${TCP_
 
 // --- partida (UDP 10100) é o binário Go: ./ms-arm64 -------------------------
 
+// --- keep-alive do Render ----------------------------------------------------
+// Os servicos free do Render dormem ~15 min sem trafego; com o lobby143
+// dormindo, o cliente 1.27 trava nos 100% esperando o wake-up do login.
+// Enquanto este servidor roda no celular, mantem a stack acordada.
+const https = require('https');
+const WAKE_TARGETS = (process.env.WAKE_TARGETS ||
+    'https://rzim-lobby143.onrender.com,https://rzim-cloud.onrender.com')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+const wakeAll = () => {
+    for (const t of WAKE_TARGETS) {
+        const req = https.get(t + '/', (r) => r.resume());
+        req.on('error', (e) => logger.warn(`[keepalive] ${t}: ${e.message}`));
+        req.setTimeout(60000, () => req.destroy());
+    }
+};
+setInterval(wakeAll, 9 * 60 * 1000);
+setTimeout(wakeAll, 3000);
+
 logger.info('[termux] servidor pronto. abre o jogo.');
 
 function shutdown(signal) {
