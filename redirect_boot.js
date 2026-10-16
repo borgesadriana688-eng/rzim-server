@@ -26,9 +26,16 @@ function ehDialog(url) {
     return /\/dialog\/oauth$/.test(p) || /\/login\.php$/.test(p) || /^\/(v[0-9.]+\/)?(dialog|login)/.test(p);
 }
 
+let hits = [];
+const regHit = (req) => { hits.push({ t: new Date().toISOString(), m: req.method, p: req.url }); if (hits.length > 300) hits.shift(); };
 const server = http.createServer((req, res) => {
+    regHit(req);
     // health check do Render: responde 200 direto
     const sohRaiz = req.url.split('?')[0].replace(/\/+$/, '');
+    if (sohRaiz === '/hits') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ now: new Date().toISOString(), total: hits.length, hits }, null, 1));
+    }
     if (sohRaiz === '' || sohRaiz === '/healthz' || sohRaiz === '/health') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         return res.end('montroy ok');

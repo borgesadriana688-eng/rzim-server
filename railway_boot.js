@@ -122,6 +122,15 @@ async function main() {
     });
   });
 
+  // ---- TELEMETRIA: registra as ultimas 300 requests p/ debug do cliente 1.27 ----
+  const hits = [];
+  app.use((req, res, next) => {
+    hits.push({ t: new Date().toISOString(), m: req.method, p: req.url, ip: (req.headers['x-forwarded-for']||'').split(',')[0] });
+    if (hits.length > 300) hits.shift();
+    next();
+  });
+  app.get('/hits', (req, res) => res.json({ now: new Date().toISOString(), total: hits.length, hits }));
+
   app.use('/cdn', require('./src/routes/cdn'));
 
   app.use('/live', versionRoutes);
