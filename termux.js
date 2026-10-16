@@ -58,6 +58,20 @@ app.use('/v143', createProtocolRouter({ filter: () => true }));
 app.use('/v127', createProtocolRouter({ filter: () => true }));
 
 // 4) /api genérico do main
+
+// 5) telas de login do cliente 1.27 (webview): 302 pro lobby MONTROY no Render.
+//    A WebView do Android segue redirects; as rotas de SDK (/app/info/get,
+//    /oauth/*, /me) seguem servidas aqui mesmo, direto do Termux.
+const LOBBY143 = (process.env.LOBBY143_TARGET || 'https://rzim-lobby143.onrender.com').replace(/\/+$/, '');
+const ehDialogT = (p) => {
+    const q = p.split('?')[0].replace(/\/+$/, '');
+    return /\/dialog\/oauth$/.test(q) || /\/login\.php$/.test(q) || /^\/(v[0-9.]+\/)?(dialog|login)/.test(q);
+};
+app.use((req, res, next) => {
+    if (ehDialogT(req.url)) return res.redirect(302, LOBBY143 + req.url);
+    next();
+});
+
 app.use('/api', require('./src/routes/index'));
 
 // Qualquer rota nao reconhecida chega aqui ANTES do 404 — deixa o log dizer
