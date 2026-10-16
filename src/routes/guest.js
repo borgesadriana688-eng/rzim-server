@@ -283,11 +283,27 @@ router.get('/me', graphMe);
 router.get(/^\/v[\d.]+\/me$/, graphMe);
 
 router.get('/app/info/get', (req, res) => {
+  // ecoa a versao do proprio cliente quando ele informa (1.27, 1.43, 1.70)
+  const verCliente = param(req, 'version', '');
   res.json({
     client_log: false,
     status: 0,
     maintenance: false,
-    version: GAME_VERSION,
+    version: verCliente || GAME_VERSION,
+    game_server: gameServerHost(req),
+    update_url: '',
+    notice: { title: 'Servidor Privado', content: 'Bem-vindo ao servidor!', show: true }
+  });
+});
+
+router.post('/app/info/get', (req, res) => {
+  // mesmo do GET: o SDK do 1.27 as vezes posta
+  const verCliente = param(req, 'version', '');
+  res.json({
+    client_log: false,
+    status: 0,
+    maintenance: false,
+    version: verCliente || GAME_VERSION,
     game_server: gameServerHost(req),
     update_url: '',
     notice: { title: 'Servidor Privado', content: 'Bem-vindo ao servidor!', show: true }
