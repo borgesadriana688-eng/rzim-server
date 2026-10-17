@@ -33,4 +33,22 @@ router.get('/android/:version/:file(fileinfo|versioninfo)', (req, res) => {
     });
 });
 
+// Servir os arquivos reais de hot-update quando o cliente pede (ex. lochotfix
+// de uma instalacao antiga que nao bate com o fileinfo atual). O arquivo fica
+// em data/cdn/<versao>/files/<caminho-do-fileinfo>.
+router.get('/android/:version/*', (req, res) => {
+    const { version } = req.params;
+    const rest = req.params[0];
+    if (rest.includes('..')) return res.status(400).end();
+    const fp = path.join(DATA, version, 'files', rest);
+    fs.readFile(fp, (err, data) => {
+        if (err) {
+            console.log(`[CDN] arquivo pedido nao temos: ${version}/${rest}`);
+            return res.status(404).end();
+        }
+        res.set('Content-Type', 'application/octet-stream');
+        res.send(data);
+    });
+});
+
 module.exports = router;
