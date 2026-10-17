@@ -29,7 +29,7 @@ function createVersionRouter(versionOverride) {
             billboard_msg: '',
             // 1.27: CDN aponta pra nossa nuvem p/ o pedido de download cair no nosso
             // servidor (diagnostico) em vez do CDN oficial morto p/ versao 2019.
-            cdn_url: version.startsWith('1.27') ? loginServerUrl(req) + 'cdn/' : "https://dl.cdn.freefiremobile.com/live/ABHotUpdates/",
+            cdn_url: (version.startsWith('1.27') || version.startsWith('1.43')) ? loginServerUrl(req) + 'cdn/' : "https://dl.cdn.freefiremobile.com/live/ABHotUpdates/",
             client_ip: requestIp,
             code: 0,
             country_code: 'BR',
