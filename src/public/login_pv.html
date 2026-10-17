@@ -451,6 +451,27 @@
             const _st = new URLSearchParams(location.search).get('state');
             if (_st) params.set('state', _st);
 
+            // ---- SDK beetalk (1.27): redirect_uri gop<app>://auth/ com code= ----
+            const _rd = _qs.get("redirect_uri") || "";
+            if (_rd) {
+                (async () => {
+                    try {
+                        const r = await fetch(`${API_BASE}/authcode`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ open_id: userId, access_token: accessToken })
+                        });
+                        const j = await responseJson(r);
+                        if (j.success !== true || !j.data || !j.data.code) throw new Error('sem code');
+                        const sep = _rd.includes('?') ? '&' : '?';
+                        window.location.href = `${_rd}${sep}code=${encodeURIComponent(j.data.code)}`;
+                    } catch (e) {
+                        showToast('Falha ao entrar no jogo, tente de novo.', true);
+                    }
+                })();
+                return;
+            }
+
             const ua = navigator.userAgent || "";
             const isAndroidWebView = /wv|WebView/.test(ua) || /; wv\)/.test(ua);
             const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

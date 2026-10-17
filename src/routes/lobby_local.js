@@ -101,6 +101,46 @@ router.post(['/dialog/oauth', '/dialog/oauth/', '/oauth/login'], (req, res) => {
     res.send(PAGE);
 });
 
+// ---------- codes OAuth p/ o SDK beetalk (1.27) ----------
+// O SDK abre /oauth/login?redirect_uri=gop<app>: //auth/, espera o redirect com
+// code= e depois troca em POST /oauth/token/exchange esperando open_id/token.
+const CODES = new Map();
+
+router.post('/api/authcode', (req, res) => {
+    const b = req.body || {};
+    const openId = String(b.open_id || b.user_id || '').trim();
+    const token = String(b.access_token || '').trim();
+    if (!openId || !token) {
+        return res.json({ success: false, message: 'Conta invalida.' });
+    }
+    const code = crypto.randomUUID();
+    CODES.set(code, { open_id: openId, access_token: token, ts: Date.now() });
+    if (CODES.size > 400) {
+        const cutoff = Date.now() - 10 * 60 * 1000;
+        for (const [k, v] of CODES) if (v.ts < cutoff) CODES.delete(k);
+    }
+    res.json({ success: true, data: { code } });
+});
+
+function exchangeCode(req, res) {
+    const b = req.body || {};
+    const code = String(b.code || (req.query && req.query.code) || '').trim();
+    const hit = CODES.get(code);
+    CODES.delete(code); // uso unico
+    if (!hit || Date.now() - hit.ts > 10 * 60 * 1000) {
+        return res.json({ error: 'invalid_grant', error_description: 'Codigo invalido ou expirado.' });
+    }
+    res.json({
+        open_id: hit.open_id,
+        access_token: hit.access_token,
+        refresh_token: hit.access_token,
+        expiry_time: Math.floor(Date.now() / 1000) + 86400 * 60,
+        platform: 0
+    });
+}
+router.post('/oauth/token/exchange', exchangeCode);
+router.get('/oauth/token/exchange', exchangeCode);
+
 router.get('/api/captcha', (req, res) => res.json(newCaptcha()));
 
 router.post('/api/login', (req, res) => {
