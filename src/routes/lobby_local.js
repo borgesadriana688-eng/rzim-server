@@ -89,13 +89,13 @@ function newCaptcha() {
 
 // ---------- rotas ----------
 
-router.get(['/dialog/oauth', '/dialog/oauth/', '/login.php', '/dialog/login'], (req, res) => {
+router.get(['/dialog/oauth', '/dialog/oauth/', '/login.php', '/dialog/login', '/oauth/login'], (req, res) => {
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'no-store');
     res.send(PAGE);
 });
 
-router.post(['/dialog/oauth', '/dialog/oauth/'], (req, res) => {
+router.post(['/dialog/oauth', '/dialog/oauth/', '/oauth/login'], (req, res) => {
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'no-store');
     res.send(PAGE);
