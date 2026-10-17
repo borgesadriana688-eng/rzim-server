@@ -52,7 +52,7 @@ async function handleMajorLogin(reqObj, ctx) {
   if (reqObj.client_version) account.client_version = String(reqObj.client_version);
   await getRepo().save(account);
 
-  const region = account.region || '';
+  const region = account.region || DEFAULT_REGION; // 1.27 rejeita regiao vazia ao INICIAR JOGO
 
   ctx.logger.info(
     `[login] MajorLogin uid=${account.uid} open_id=${account.open_id} region="${region}"`
@@ -63,7 +63,7 @@ async function handleMajorLogin(reqObj, ctx) {
     lock_region: region,
     noti_region: region,
     ip_region: region || DEFAULT_REGION,
-    agora_environment: '',
+    agora_environment: 'live', // igual ao servidor python de referencia
     new_active_region: region,
     recommend_regions: [DEFAULT_REGION],
     token,
