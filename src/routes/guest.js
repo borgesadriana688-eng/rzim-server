@@ -209,6 +209,11 @@ router.get('/oauth/token/inspect', (req, res) => {
   const d = verifyToken(token);
   if (!d) return res.json({ code: 2017, error: 'invalid_grant' });
   res.json({
+    // campos do SDK 1.27 (beetalk): valida sessao por active/token_type/exp
+    active: true,
+    token_type: 'Bearer',
+    nickname: d.nickname || 'Player',
+    exp: d.expire,
     expiry_time: d.expire,
     uid: Number(BigInt(d.open_id) % 100000000000000n),
     open_id: d.open_id,

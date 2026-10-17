@@ -134,7 +134,12 @@ function exchangeCode(req, res) {
         open_id: hit.open_id,
         access_token: hit.access_token,
         refresh_token: hit.access_token,
-        expiry_time: Math.floor(Date.now() / 1000) + 86400 * 60,
+        // SDK do 1.27 (beetalk) exige: sem expires_in/token_type a sessao fica
+        // invalida (jogo recebe login vazio no PlatformLogin). Igual ao Flask
+        // de referencia (freefire_server_v220 oauth_token).
+        expires_in: 2592000,
+        expiry_time: Math.floor(Date.now() / 1000) + 2592000,
+        token_type: 'Bearer',
         platform: 0
     });
 }

@@ -575,10 +575,42 @@ const updateStmt = db.prepare(`
 // non-empty open_id, e.g. via the Garena SDK.)
 const GUEST_OPEN_ID = process.env.GUEST_OPEN_ID || 'guest-default';
 
+function _openIdFromToken(tok) {
+  if (!tok) return null;
+  let t = String(tok).trim();
+  if (!t) return null;
+  // o payload pode vir com '.', ';', espacos ou o primeiro char comido pelo SDK
+  const cands = [];
+  for (const part of t.split(/[.;& ]+/)) {
+    if (!part) continue;
+    cands.push(part);
+    if (part[0] !== 'e') cands.push('e' + part);
+  }
+  for (let i = cands.length - 1; i >= 0; i--) {
+    const c = cands[i];
+    if (c.length < 8) continue;
+    try {
+      const buf = Buffer.from(c + '='.repeat((4 - (c.length % 4)) % 4), 'base64');
+      const j = JSON.parse(buf.toString('utf8'));
+      if (j && j.open_id && String(j.open_id).trim() !== '') {
+        const id = String(j.open_id).trim();
+        if (/^\d{6,32}$/.test(id)) return id;
+      }
+    } catch (err) {
+      // nao era JSON b64 — ignora
+    }
+  }
+  return null;
+}
+
 function deriveOpenId(obj) {
   obj = obj || {};
   const oid = obj.open_id;
   if (oid != null && String(oid).trim() !== '') return String(oid);
+  // SDK 1.27: o open_id real viaja dentro do access_token/login_token (payload
+  // base64 JSON). Igual ao "FIX IDENTIDADE" do Flask de referencia.
+  const fromTok = _openIdFromToken(obj.access_token) || _openIdFromToken(obj.login_token);
+  if (fromTok) return fromTok;
   return GUEST_OPEN_ID;
 }
 
