@@ -60,6 +60,12 @@ async function main() {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
+  // ---- login MONTROY local (lobby_local.js) — mesma tela do Termux ----
+  // Montado ANTES de tudo: /dialog/oauth (pagina que o botao de login do
+  // cliente abre), /api/captcha, /api/login, /api/register. Assim o cliente
+  // 1.27 loga com usuario/senha MONTROY direto na nuvem, sem Termux.
+  app.use('/', require('./src/routes/lobby_local'));
+
   // ---- auth do ZIP (login Discord) ----
   const wantsAuth = !!(process.env.DATABASE_URL && process.env.DISCORD_CLIENT_ID);
   if (wantsAuth) {
