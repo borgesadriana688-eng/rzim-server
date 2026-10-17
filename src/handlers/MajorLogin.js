@@ -51,7 +51,10 @@ async function handleMajorLogin(reqObj, ctx) {
   if (reqObj.client_version) account.client_version = String(reqObj.client_version);
   await getRepo().save(account);
 
-  const region = account.region || '';
+  // Fallback para BR: o cliente 1.27 valida a regiao ao INICIAR JOGO e com regiao
+  // vazia rejeita instantaneamente (sem nem chamar ChooseRegion). O servidor python
+  // de referencia (freefire_server_v220) devolvia BR em todos os campos.
+  const region = account.region || DEFAULT_REGION;
 
   ctx.logger.info(
     `[login] MajorLogin uid=${account.uid} open_id=${account.open_id} region="${region}"`

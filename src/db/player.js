@@ -39,7 +39,7 @@ const logger = require('../logger');
 
 const db = accounts.db;
 
-const DEFAULT_REGION = ''; // empty => client prompts for region selection
+const DEFAULT_REGION = 'BR'; // 1.27 rejeita regiao vazia no INICIAR JOGO (sem chamada ao servidor)
 
 // ---------------------------------------------------------------------------
 // DEFAULT_PLAYER template
