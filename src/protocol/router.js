@@ -123,6 +123,83 @@ function loadHandlers() {
 
 // --- transport helpers -----------------------------------------------------
 
+// Quantos campos uteis o ReqType decodifica deste buffer (para desempatar
+// corpo aberto vs AES). Buffer que nao decodifica -> 0.
+function scoreDecode(buf, reqTypeName) {
+  try {
+    const ReqType = lookup(reqTypeName);
+    if (!ReqType) return 0;
+    const msg = ReqType.decode(buf);
+    const obj = ReqType.toObject(msg, { longs: Number, enums: Number, defaults: true });
+    let score = 0;
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (typeof v === 'string' && v.length) score++;
+      else if (typeof v === 'number' && v) score++;
+      else if (Buffer.isBuffer(v) && v.length) score++;
+      else if (Array.isArray(v) && v.length) score++;
+      else if (v !== null && typeof v === 'object' && Object.keys(v).length) score++;
+    }
+    return score;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// Walk top-level protobuf fields: retorna true se o buffer inteiro parses como
+// uma sequencia valida de campos (tag varint + wire type 0/1/2/5) consumindo
+// exatamente o fim do buffer. Corpos AES (aleatorios) nao passam na pratica.
+function isValidProtobufBody(buf) {
+  let i = 0;
+  const len = buf.length;
+  let fields = 0;
+  while (i < len && fields < 64) {
+    // tag (varint)
+    let tag = 0, shift = 0, b;
+    do {
+      if (i >= len) return false;
+      b = buf[i++];
+      if (shift > 28) return false;
+      tag |= (b & 0x7f) << shift;
+      shift += 7;
+    } while (b & 0x80);
+    const wireType = tag & 7;
+    const fieldNum = tag >>> 3;
+    if (fieldNum === 0) return false;
+    if (wireType === 3 || wireType === 4) return false; // grupos deprecated
+    if (wireType > 5) return false;
+    if (wireType === 0) {
+      let vshift = 0;
+      let vb;
+      do {
+        if (i >= len) return false;
+        vb = buf[i++];
+        vshift += 7;
+        if (vshift > 63) return false;
+      } while (vb & 0x80);
+    } else if (wireType === 1) {
+      i += 8;
+      if (i > len) return false;
+    } else if (wireType === 5) {
+      i += 4;
+      if (i > len) return false;
+    } else if (wireType === 2) {
+      let flen = 0, fshift = 0, fb;
+      do {
+        if (i >= len) return false;
+        fb = buf[i++];
+        flen |= (fb & 0x7f) << fshift;
+        fshift += 7;
+        if (fshift > 28) return false;
+      } while (fb & 0x80);
+      if (i + flen > len) return false;
+      i += flen;
+    }
+    fields++;
+  }
+  return i === len && fields > 0;
+}
+
 function bodyToCipher(body) {
   // express.raw gives us a Buffer; base64 mode means that Buffer is base64 text.
   if (BODY_ENCODING === 'base64') {
@@ -215,7 +292,26 @@ function createProtocolRouter({ filter } = {}) {
       let plain = Buffer.alloc(0);
 
       if (rawBody.length > 0) {
-        plain = decrypt(bodyToCipher(rawBody));
+        const cipher = bodyToCipher(rawBody);
+        // Cliente 1.27 (Free Fire 2019) envia protobuf ABERTO; o 1.43 envia
+        // AES-128-CBC (mesmo processo serve os dois servicos). Decidir pela
+        // estrutura: so um walk completo e valido da arvore de campos fecha
+        // no byte exato; ciphertext AES (alta entropia) quase nunca fecha.
+        let dec = null;
+        try { dec = decrypt(cipher); } catch (e) { dec = null; }
+        const rawValid = isValidProtobufBody(cipher);
+        const decValid = dec ? isValidProtobufBody(dec) : false;
+        if (decValid && !rawValid) {
+          plain = dec; // 1.43: envelope AES com protobuf real dentro
+        } else if (rawValid && !decValid) {
+          plain = cipher; // 1.27: protobuf aberto
+        } else if (rawValid && decValid) {
+          // ambiguo: o que decodifica com mais campos uteis ganha
+          plain = (scoreDecode(cipher, reqTypeName) >= scoreDecode(dec, reqTypeName))
+            ? cipher : dec;
+        } else {
+          plain = cipher; // nenhum fecha: nao era AES -> usa como veio
+        }
         const ReqType = lookup(reqTypeName);
         if (ReqType) {
           const msg = ReqType.decode(plain);
