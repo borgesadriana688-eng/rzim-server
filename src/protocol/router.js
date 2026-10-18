@@ -228,6 +228,26 @@ function sendEncoded(res, resTypeName, resObj) {
 // acked with an empty 200 (matching the reference server).
 const PLAINTEXT_ENDPOINTS = new Set(['LogEvent', 'NetworkLogEvent']);
 
+
+// Percent-decode de um Buffer urlencoded (bytes latinos, '+' vira espaco).
+function percentDecode(buf) {
+  try {
+    const s = buf.toString('latin1');
+    const out = Buffer.alloc(s.length);
+    let o = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c === 37 && i + 2 < s.length + 1) {
+        const hex = s.substr(i + 1, 2);
+        if (/^[0-9A-Fa-f]{2}$/.test(hex)) { out[o++] = parseInt(hex, 16); i += 2; continue; }
+      }
+      if (c === 43) { out[o++] = 32; continue; }
+      out[o++] = c;
+    }
+    return out.slice(0, o);
+  } catch (e) { return null; }
+}
+
 // --- router ----------------------------------------------------------------
 
 function createProtocolRouter({ filter } = {}) {
@@ -304,25 +324,39 @@ function createProtocolRouter({ filter } = {}) {
       let plain = Buffer.alloc(0);
 
       if (rawBody.length > 0) {
-        const cipher = bodyToCipher(rawBody);
-        // Cliente 1.27 (Free Fire 2019) envia protobuf ABERTO; o 1.43 envia
-        // AES-128-CBC (mesmo processo serve os dois servicos). Decidir pela
-        // estrutura: so um walk completo e valido da arvore de campos fecha
-        // no byte exato; ciphertext AES (alta entropia) quase nunca fecha.
-        let dec = null;
-        try { dec = decrypt(cipher); } catch (e) { dec = null; }
-        const rawValid = isValidProtobufBody(cipher);
-        const decValid = dec ? isValidProtobufBody(dec) : false;
-        if (decValid && !rawValid) {
-          plain = dec; // 1.43: envelope AES com protobuf real dentro
-        } else if (rawValid && !decValid) {
-          plain = cipher; // 1.27: protobuf aberto
-        } else if (rawValid && decValid) {
-          // ambiguo: o que decodifica com mais campos uteis ganha
-          plain = (scoreDecode(cipher, reqTypeName) >= scoreDecode(dec, reqTypeName))
-            ? cipher : dec;
+        // Cliente 1.27 manda os endpoints como application/x-www-form-urlencoded
+        // com o protobuf percent-encoded no corpo. Montar candidatos: o corpo
+        // cru, o corpo percent-decodificado, e (se houver prefixo "campo=")
+        // o valor apos o '='. Cada candidato passa pelo pipeline AES/proto e
+        // o que fechar melhor na estrutura do protobuf vence.
+        const candidates = [bodyToCipher(rawBody)];
+        const ct = String(req.headers['content-type'] || '').toLowerCase();
+        if (ct.includes('urlencoded')) {
+          const formd = percentDecode(rawBody);
+          if (formd && formd.length) {
+            candidates.push(formd);
+            const s0 = formd.toString('latin1');
+            const eq = s0.indexOf('=');
+            if (eq > 0 && eq < 64) candidates.push(formd.slice(eq + 1));
+            if (s0.startsWith('data=')) candidates.push(formd.slice(5));
+          }
+        }
+        // 1.43 manda AES-128-CBC; 1.27 manda protobuf aberto (ou percent-
+        // encoded). Avaluar cada candidato cru + sua variante AES-decryptada.
+        const picks = [];
+        for (const cand of candidates) {
+          let dv = null;
+          try { dv = decrypt(cand); } catch (e) { dv = null; }
+          const cv = isValidProtobufBody(cand);
+          const dvv = dv ? isValidProtobufBody(dv) : false;
+          if (cv) picks.push({ buf: cand, score: scoreDecode(cand, reqTypeName) });
+          if (dvv) picks.push({ buf: dv, score: scoreDecode(dv, reqTypeName) });
+        }
+        if (picks.length > 0) {
+          picks.sort((a, b) => b.score - a.score);
+          plain = picks[0].buf;
         } else {
-          plain = cipher; // nenhum fecha: nao era AES -> usa como veio
+          plain = candidates[0]; // nenhum fecha: usa como veio
         }
         const ReqType = lookup(reqTypeName);
         if (ReqType) {

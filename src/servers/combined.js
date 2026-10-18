@@ -24,10 +24,18 @@ const createProtocolRouter = require('../protocol/router');
 
 const app = createBaseApp();
 
-// Body parsers das rotas do SDK (form/json). Não interferem no protocolo do
-// jogo, porque o cliente manda application/octet-stream e os parsers pulam.
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+// Body parsers das rotas do SDK (form/json). ATENCAO: o cliente 1.27 manda os
+// endpoints de protocolo (rota de um segmento: /PlatformLogin etc.) como
+// application/x-www-form-urlencoded com o protobuf percent-encoded dentro.
+// Se estes parsers consumirem o stream, o router de protocolo nao ve NADA.
+// Regra: parsers globais so rodam para rotas multi-segmento (SDK/oauth/api).
+const isProtoPost = (req) => req.method === 'POST' && /^\/[^/]+$/.test(req.path || '/');
+app.use(express.json({ limit: '1mb', type: (req) => !isProtoPost(req) }));
+app.use(express.urlencoded({
+  extended: false,
+  limit: '1mb',
+  type: (req) => !isProtoPost(req)
+}));
 
 // 1) SDK: guest automático + app/info + heartbeat + graph mínimo
 app.use('/', guestRoutes);
