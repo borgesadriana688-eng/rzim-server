@@ -247,6 +247,18 @@ function createProtocolRouter({ filter } = {}) {
       const entry = endpointIndex.get(cmd);
     const handler = handlers.get(cmd);
 
+      // Debug 1.27: corpo de LoginReq chegando vazio. Logar headers crus de
+      // PlatformLogin/PlatformRegister/Login/MajorLogin para ver se a identidade
+      // viaja em header (Authorization ou custom) em vez do protobuf.
+      if (/^(PlatformLogin|PlatformRegister|Login|MajorLogin|RegionSelect|ChooseRegion)$/i.test(cmd)) {
+        const h = {};
+        for (const [k, v] of Object.entries(req.headers)) {
+          if (['host', 'user-agent', 'accept', 'accept-encoding', 'connection', 'content-length', 'content-type'].includes(k)) continue;
+          h[k] = typeof v === 'string' ? v.slice(0, 120) : v;
+        }
+        logger.warn(`[headers] ${cmd} ct=${req.headers['content-type'] || '-'} len=${req.headers['content-length'] || '-'} body=${Buffer.isBuffer(req.body) ? req.body.length : 'n/a'} :: ${JSON.stringify(h)}`);
+      }
+
     // Unknown endpoint with no handler -> let other routes / 404 handle it
     // (plaintext endpoints like LogEvent may have no protobuf entry/handler).
     if (!entry && !handler && !PLAINTEXT_ENDPOINTS.has(cmd)) return next();
