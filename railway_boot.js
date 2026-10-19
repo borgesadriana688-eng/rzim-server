@@ -63,7 +63,14 @@ async function main() {
   // stream desses POSTs, senao o router de protocolo ve corpo vazio.
   const isProtoPost = (req) =>
     req.method === 'POST' && /^\/(v\d+\.\d+\/)?[^/]+$/.test(req.path || '/');
-  app.use(express.json({ limit: '1mb', type: (req) => !isProtoPost(req) }));
+  // FIX EXCHANGE 400: o json parser com type=!isProtoPost "capturava" QUALQUER
+  // POST multi-segmento, inclusive os urlencoded do MSDK 1.27 em
+  // /oauth/token/exchange -> JSON.parse falhava -> 400 -> "erro de conexao".
+  // Agora o json so pega quem realmente tem Content-Type json; urlencoded
+  // fica pro parser urlencoded (e o protocolo de 1 segmento segue intocado).
+  const isJsonBody = (req) =>
+    !isProtoPost(req) && /json/i.test(String(req.headers['content-type'] || ''));
+  app.use(express.json({ limit: '1mb', type: isJsonBody }));
   app.use(express.urlencoded({
     extended: false,
     limit: '1mb',

@@ -30,7 +30,8 @@ const app = createBaseApp();
 // Se estes parsers consumirem o stream, o router de protocolo nao ve NADA.
 // Regra: parsers globais so rodam para rotas multi-segmento (SDK/oauth/api).
 const isProtoPost = (req) => req.method === 'POST' && /^\/[^/]+$/.test(req.path || '/');
-app.use(express.json({ limit: '1mb', type: (req) => !isProtoPost(req) }));
+app.use(express.json({ limit: '1mb', type: (req) =>
+  !isProtoPost(req) && /json/i.test(String(req.headers['content-type'] || '')) }));
 app.use(express.urlencoded({
   extended: false,
   limit: '1mb',
